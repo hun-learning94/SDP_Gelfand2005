@@ -1,0 +1,134 @@
+---
+title: "2020_11_12_01_dat"
+author: "Kang Gyeonghun"
+date: "12/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE,
+                      root.dir = dirname(rstudioapi::getActiveDocumentContext()$path))
+oldloc = Sys.getlocale("LC_ALL")
+oldloc
+Sys.setlocale("LC_ALL", "korean")
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+pkgs = c('tidyverse','ggplot2',"lubridate", "readxl", "data.table")
+pkg_ins = rownames(installed.packages())
+for(pkg in pkgs){  if(!(pkg %in% pkg_ins)) install.packages(pkg, character.only=T) }
+sapply(pkgs, require, character.only=T)
+```
+
+```{r}
+DF1 = read_xlsx("2020/2020_12.xlsx", sheet = "Data", col_names = T, col_types = "guess", na="")
+DF2 = read_xlsx("2020/2020_01.xlsx", sheet = "Data", col_names = T, col_types = "guess", na="")
+DF3 = read_xlsx("2020/2020_02.xlsx", sheet = "Data", col_names = T, col_types = "guess", na="")
+DF = rbind(DF1, DF2, DF3)
+```
+
+```{r}
+idx = any(grepl("서울", DF[["지역"]]), grepl("경기", DF[["지역"]]))
+DFseoul = DF[idx, ]
+DFseoul = DFseoul %>% select("측정소명", "측정일시", "PM10", "PM25")
+DFseoul[["측정일시"]] = as_datetime(as.character(DFseoul[["측정일시"]]), format = "%Y%m%d%H", tz = "Asia/Seoul")
+colnames(DFseoul)[1:2] = c("name", "date")
+head(DFseoul)
+```
+```{r}
+DFseoul %>% mutate(day = day(date)) %>% filter(name == "공항대로")
+```
+
+
+```{r}
+DFpm25 = DFseoul %>% mutate(day = paste0("M",month(date), "D", day(date))) %>% 
+  group_by(name, day) %>% 
+  summarize(PM25dayavg = mean(PM25, na.rm = T)) %>% 
+  pivot_wider(names_from = "day", values_from = "PM25dayavg")
+DFpm25
+```
+
+
+```{r}
+DFpm10 = DFseoul %>% mutate(day = paste0("M",month(date), "D", day(date))) %>% 
+  group_by(name, day) %>% 
+  summarize(PM10dayavg = mean(PM10, na.rm = T)) %>% 
+  pivot_wider(names_from = "day", values_from = "PM10dayavg")
+DFpm10
+```
+
+
+add column of coordinates and elevation
+
+elevation
+```{r}
+# DFpm10$name
+```
+```{r}
+# elev = read_xlsx("elevation.xlsx", sheet = "Sheet1", col_names = T, col_types = "guess", na="")
+# colnames(elev) = c("name", "elev")
+# elev
+```
+
+coordinates
+```{r}
+coords = fread("MesSiteCoords.csv", encoding = "UTF-8")
+colnames(coords) = c("name", "lat", "lon")
+coords
+```
+
+```{r}
+DFpm10_sub = DFpm10 %>% filter(name %in% coords$name)
+DFpm25_sub = DFpm25 %>% filter(name %in% coords$name)
+DFpm10_sub
+```
+
+```{r}
+coords_sub = coords %>% filter(name %in% DFpm10_sub$name)
+coords_sub
+```
+
+## mark missing values
+```{r}
+sum(is.na(DFpm10_sub))
+sum(is.na(DFpm25_sub))
+DFpm10_sub[is.na(DFpm10_sub)] = NA_real_
+DFpm25_sub[is.na(DFpm25_sub)] = NA_real_
+```
+
+
+```{r}
+apply(DFpm10_sub[, -1], 2, function(x) sum(is.na(x)))
+apply(DFpm25_sub[, -1], 2, function(x) sum(is.na(x)))
+```
+
+```{r}
+DFpm10 = merge(DFpm10_sub, coords_sub, by = "name")
+DFpm25 = merge(DFpm25_sub, coords_sub, by = "name")
+```
+
+```{r}
+write.table(DFpm10, file="GyeonggiFD_pm10.csv", sep=",", row.names = F, fileEncoding = "UTF-8")
+write.table(DFpm25, file="GyeonggiFD_pm25.csv", sep=",", row.names = F, fileEncoding = "UTF-8")
+write.table(coords_sub, file="GyeonggiFD_coords.csv", sep=",", row.names = F, fileEncoding = "UTF-8")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

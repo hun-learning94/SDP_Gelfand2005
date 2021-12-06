@@ -1,0 +1,111 @@
+---
+title: "SeoulFineDustMeasurementSitesInfo"
+author: "Kang Gyeonghun"
+date: "12/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+pkgs = c('tidyverse','ggplot2','jsonlite','httr', 'urltools', "lubridate", "data.table")
+pkg_ins = rownames(installed.packages())
+for(pkg in pkgs){  if(!(pkg %in% pkg_ins)) install.packages(pkg, character.only=T) }
+sapply(pkgs, require, character.only=T)
+```
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE,
+                      root.dir = dirname(rstudioapi::getActiveDocumentContext()$path))
+oldloc = Sys.getlocale("LC_ALL")
+oldloc
+Sys.setlocale("LC_ALL", "korean")
+```
+
+
+## API
+https://www.data.go.kr/tcs/dss/selectApiDataDetailView.do?publicDataPk=15073877
+
+예시 URL
+http://apis.data.go.kr/B552584/MsrstnInfoInqireSvc/getMsrstnList
+?serviceKey=BMFNxiAVN3gUpziAJUsnJnv%2B5wrn8Jkl5ieEvipJrcVfpBM%2BQoxIa%2BawLLwRwmrAMlNVWZoVQxh5yFU2BqwARw%3D%3D
+&returnType=json
+&numOfRows=100
+&pageNo=1
+&addr=%EC%84%9C%EC%9A%B8
+
+```{r}
+operation = "http://apis.data.go.kr/B552584/MsrstnInfoInqireSvc/getMsrstnList"
+key = urltools::url_decode(
+  "BMFNxiAVN3gUpziAJUsnJnv%2B5wrn8Jkl5ieEvipJrcVfpBM%2BQoxIa%2BawLLwRwmrAMlNVWZoVQxh5yFU2BqwARw%3D%3D")
+params = list(
+  serviceKey = key, 
+  returnType = "json",
+  numOfRows = 100,
+  pageNo = 1,
+  addr = "서울"
+)
+
+res = data.frame()
+total = httr::GET(operation, query = params)
+totalText = httr::content(total, "text") %>% jsonlite::fromJSON(flatten = T)
+res = rbind(res, totalText$response$body$items)
+head(res)
+res_sub1 = res %>% select(stationName, dmX, dmY)
+head(res_sub1)
+```
+
+```{r}
+params = list(
+  serviceKey = key, 
+  returnType = "json",
+  numOfRows = 100,
+  pageNo = 1,
+  addr = "경기"
+)
+
+res = data.frame()
+total = httr::GET(operation, query = params)
+totalText = httr::content(total, "text") %>% jsonlite::fromJSON(flatten = T)
+res = rbind(res, totalText$response$body$items)
+res_sub2 = res %>% select(stationName, dmX, dmY)
+res_sub2
+```
+
+```{r}
+res_sub = rbind(res_sub1, res_sub2)
+```
+
+```{r}
+dim(res_sub)
+```
+
+
+save
+```{r}
+write.table(res_sub, file="MesSiteCoords.csv", sep=",", row.names = F, fileEncoding = "UTF-8")
+```
+
+
+```{r}
+fread("MesSiteCoords.c %>% %>% %>% %>% %>% %>% %>% sv", encoding = "UTF-8")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

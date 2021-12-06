@@ -1,0 +1,146 @@
+---
+title: "GyeonggiMap"
+author: "Kang Gyeonghun"
+date: "12/5/2021"
+output: html_document
+---
+```{r}
+knitr::opts_chunk$set(echo = TRUE,
+                      root.dir = dirname(rstudioapi::getActiveDocumentContext()$path))
+oldloc = Sys.getlocale("LC_ALL")
+oldloc
+Sys.setlocale("LC_ALL", "korean")
+```
+지도 shp 파일
+http://www.gisdeveloper.co.kr/?p=2332
+
+지도 그리는 법
+https://datadoctorblog.com/2021/01/27/R-Vis-korea-map/
+
+```{r, results='hide', warning=FALSE, message=FALSE}
+pkgs = c('tidyverse','ggplot2',"rgdal", "sp", "data.table")
+pkg_ins = rownames(installed.packages())
+for(pkg in pkgs){  if(!(pkg %in% pkg_ins)) install.packages(pkg, character.only=T) }
+sapply(pkgs, require, character.only=T)
+```
+
+
+```{r}
+map = rgdal::readOGR("../map/TL_SCCO_SIG.shp")
+```
+```{r}
+class(map)
+slotNames(map)
+```
+
+```{r}
+summary(map)
+```
+
+
+convert GRS80 to WGS84
+
+```{r}
+from_crs = CRS("+proj=tmerc +lat_0=38 +lon_0=127.5 +k=0.9996 +x_0=1000000 +y_0=2000000 +ellps=GRS80 +units=m")
+to_crs = CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+```
+
+```{r}
+map = spTransform(map, to_crs)
+summary(map)
+```
+
+
+
+```{r}
+head(map@data)
+```
+```{r}
+df_map = fortify(map)
+```
+
+```{r}
+df_map_info = map@data
+head(df_map_info)
+```
+```{r}
+df_map_info[,"id"] = (1:nrow(df_map_info)) -1
+df_map_info[,"SIDO"] = as.numeric(substr(df_map_info$SIG_CD, start = 1, stop =2))
+df_map_info # Gyeonggi 41, Seoul 11
+```
+
+```{r}
+id_sido = df_map_info[df_map_info$SIDO %in% c(11, 41), "id"]
+df_map_Gyg = df_map[df_map$id %in% id_sido, ]
+```
+
+
+```{r}
+GyeonggiMap = ggplot(data = df_map_Gyg,
+       aes(x = long, y = lat, group = group, color=id))+
+  geom_polygon(fill = "#FFFFFF", color = "grey")+
+  theme_bw() + 
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y= element_blank(),
+    legend.position = c("none"),
+    plot.title = element_text(face = "bold", size = 18, hjust = 0.5)
+  ) + coord_fixed(ratio = 1)
+GyeonggiMap
+```
+
+```{r}
+# save(GyeonggiMap, file = "GyeonggiMap.Rdata")
+```
+
+
+Make grid!!
+```{r}
+library(raster)
+```
+```{r}
+map = rgdal::readOGR("../map/TL_SCCO_CTPRVN.shp")
+summary(map)
+```
+```{r}
+map = spTransform(map, to_crs)
+summary(map)
+```
+
+```{r}
+map_Gyg = map[map@data$CTP_KOR_NM %in% c("경기도", "서울특별시"), ]
+plot(map_Gyg)
+```
+```{r}
+grid = makegrid(map_Gyg, cellsize= 0.04)
+grid = SpatialPoints(grid, proj4string = CRS(proj4string(map_Gyg)))
+grid = grid[map_Gyg,]
+plot(map_Gyg)
+plot(grid, pch = ".", add = T)
+nrow(coordinates(grid))
+```
+
+```{r}
+res = coordinates(grid)
+colnames(res) = c("lon", "lat")
+write.table(res, "GyeonggiFD_grid.csv", sep=",", row.names = F)
+```
+
+
+```{r}
+getwd()
+```
+
+
+
+
+
+
+
+
+
+
